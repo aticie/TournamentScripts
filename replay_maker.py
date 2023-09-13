@@ -40,18 +40,7 @@ def get_spike_by_continuous_max(beatmap, strains, video_length: int, clock_rate)
     for i in range(0, len(total_strains) - rolling_window_len):
         rolling_sum_spikes.append(sum(total_strains[i:rolling_window_len + i]))
     spike_index, max_spike = max(enumerate(rolling_sum_spikes), key=itemgetter(1))
-    spike_ms = int((spike_index + (rolling_window_len / 2)) * strains.section_len)
-
-    return generate_spike_begin_end_from_max(beatmap_begin, beatmap_end, spike_ms, video_length)
-
-
-def get_spike_by_max(beatmap, strains, video_length):
-    total_strains = [sum(x) for x in zip(strains.speed, strains.aim)]
-    spike_index, max_spike = max(enumerate(total_strains), key=itemgetter(1))
-    spike_ms = spike_index * strains.section_len
-
-    beatmap_begin = beatmap.hit_objects()[0].time.total_seconds() * 1000
-    beatmap_end = beatmap.hit_objects()[-1].end_time.total_seconds() * 1000
+    spike_ms = beatmap_begin + int((spike_index + (rolling_window_len / 2)) * strains.section_len)
 
     return generate_spike_begin_end_from_max(beatmap_begin, beatmap_end, spike_ms, video_length)
 
@@ -82,13 +71,13 @@ if __name__ == '__main__':
     logger.addHandler(ch)
 
     replays_folder = WindowsPath("replays")
-    player_skins = {"Ievi-": "azerino2023",
+    player_skins = {"Ievi-": "malisz_og",
                     "Lin": "owoLynn",
                     "heyronii": "《CK》 Bacon boi 1.0 『blue』",
                     "Raikouhou": "Aristia(Edit)",
                     "Xiaomou74": "Aristia(Edit)",
                     "SunoExy": "Night of Knights"}
-    args = ["danser-cli", "-nodbcheck", "-noupdatecheck", "-quickstart", "-record", "-preciseprogress"]
+    args = ["danser-cli", "-nodbcheck", "-noupdatecheck", "-record", "-preciseprogress"]
     beatmaps = parse_osu_db("E:\\osu!\\osu!.db")
     for replay_file in replays_folder.glob("*.osr"):
         replay = Replay.from_path(replay_file)
@@ -102,10 +91,8 @@ if __name__ == '__main__':
         final_args = args + extra
         subprocess.run(final_args)
 
-        ffmpeg_args = ["ffmpeg", "-y",  "-ss", "00:00:06.5", "-to", "00:01:07.5",
+        ffmpeg_args = ["ffmpeg", "-y", "-to", "00:01:00",
                        "-i", f"C:\\danser\\videos\\{video_path}.mp4",
-                       "-vf", "fade=t=in:st=0:d=2.5,fade=t=out:st=58.5:d=2.5",
-                       "-af", "afade=t=in:st=0:d=2.5,afade=t=out:st=58.5:d=2.5",
-                       "-profile:v", "high",
+                       "-c:v", "copy", "-c:a", "copy",
                        "-avoid_negative_ts", "1", f"videos/{video_fullpath}"]
         subprocess.run(ffmpeg_args)
