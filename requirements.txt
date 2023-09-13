@@ -1,0 +1,5 @@
+ossapi==3.3.3
+requests==2.31.0
+discord.py==2.3.2
+rosu-pp-py==0.9.4
+slider==0.8.0
