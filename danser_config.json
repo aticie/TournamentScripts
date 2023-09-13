@@ -51,7 +51,7 @@
 	},
 	"Gameplay": {
 		"HitErrorMeter": {
-			"Show": true,
+			"Show": false,
 			"Scale": 1,
 			"Opacity": 1,
 			"XOffset": 0,
@@ -66,7 +66,7 @@
 			"ScaleWithSpeed": false
 		},
 		"AimErrorMeter": {
-			"Show": true,
+			"Show": false,
 			"Scale": 1,
 			"Opacity": 1,
 			"XPosition": 1350,
@@ -93,7 +93,7 @@
 			"StaticAccuracy": false
 		},
 		"HpBar": {
-			"Show": true,
+			"Show": false,
 			"Scale": 1,
 			"Opacity": 1,
 			"XOffset": 0,
@@ -108,7 +108,7 @@
 			"Static": false
 		},
 		"PPCounter": {
-			"Show": true,
+			"Show": false,
 			"Scale": 1,
 			"Opacity": 1,
 			"XPosition": 5,
@@ -189,7 +189,7 @@
 			}
 		},
 		"KeyOverlay": {
-			"Show": true,
+			"Show": false,
 			"Scale": 1,
 			"Opacity": 1,
 			"XOffset": 0,
@@ -424,8 +424,8 @@
 			"FlashToTheBeat": false,
 			"Dim": {
 				"Intro": 0,
-				"Normal": 1,
-				"Breaks": 0.5
+				"Normal": 0.800000011920929,
+				"Breaks": 0.30000001192092896
 			},
 			"Parallax": {
 				"Enabled": false,
@@ -451,7 +451,7 @@
 			}
 		},
 		"Logo": {
-			"Enabled": true,
+			"Enabled": false,
 			"DrawSpectrum": false,
 			"Dim": {
 				"Intro": 0,
@@ -626,7 +626,7 @@
 			"CustomOptions": ""
 		},
 		"PixelFormat": "yuv420p",
-		"Filters": "fade=t=in:st=0:d=5,fade=t=out:st=57.5:d=2.5",
+		"Filters": "fade=t=in:st=0:d=2.5,fade=t=out:st=57.5:d=2.5",
 		"AudioCodec": "aac",
 		"aac": {
 			"Bitrate": "192k",
@@ -649,7 +649,7 @@
 		"customAudio": {
 			"CustomOptions": ""
 		},
-		"AudioFilters": "afade=t=in:st=0:d=5,afade=t=out:st=57.5:d=2.5",
+		"AudioFilters": "afade=t=in:st=0:d=2.5,afade=t=out:st=57.5:d=2.5",
 		"OutputDir": "videos",
 		"Container": "mp4",
 		"ShowFFmpegLogs": true,

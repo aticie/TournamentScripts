@@ -87,7 +87,7 @@ if __name__ == '__main__':
         video_path = replay_file.stem
         video_fullpath = WindowsPath(replay_file.with_suffix(".mp4").name)
         extra = ["-replay", f"{replay_file}", "-skin", f"{replay_skin}", "-out", f"{video_path}", "-start",
-                 f"{spike_begin.total_seconds()}", "-end", f"{spike_end.total_seconds()}"]
+                 f"{spike_begin.total_seconds()}", "-end", f"{spike_end.total_seconds()}", "-settings=danser_config"]
         final_args = args + extra
         subprocess.run(final_args)
 
