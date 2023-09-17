@@ -1,5 +1,7 @@
 import datetime
+import json
 import logging
+import shutil
 import subprocess
 import sys
 from operator import itemgetter
@@ -57,6 +59,27 @@ def generate_spike_begin_end_from_max(beatmap_begin, beatmap_end, spike_ms, vide
     return spike_begin, spike_end
 
 
+def update_danser_config(replay_mod):
+    with open("danser_config.json", "r") as f:
+        danser_config = json.load(f)
+
+    mod_colors = {
+        "NM": 210,
+        "HD": 45,
+        "HR": 1,
+        "DT": 258,
+        "FM": 32,
+        "TB": 334,
+    }
+    danser_config["Gameplay"]["StrainGraph"]["FgColor"]["Hue"] = mod_colors[replay_mod]
+
+    with open("danser_config.json", "w") as f:
+        json.dump(danser_config, f, indent=4)
+
+
+def copy_danser_config():
+    shutil.copyfile("danser_config.json", "C:\\danser\\settings\\danser_config.json")
+
 if __name__ == '__main__':
 
     logger = logging.getLogger()
@@ -75,16 +98,20 @@ if __name__ == '__main__':
                     "Lin": "owoLynn",
                     "heyronii": "《CK》 Bacon boi 1.0 『blue』",
                     "Raikouhou": "Aristia(Edit)",
-                    "Xiaomou74": "Aristia(Edit)",
-                    "SunoExy": "Night of Knights"}
+                    "LyeRR": "Aristia Editt",
+                    "SunoExy": "Night of Knights",
+                    }
     args = ["danser-cli", "-nodbcheck", "-noupdatecheck", "-record", "-preciseprogress"]
     beatmaps = parse_osu_db("E:\\osu!\\osu!.db")
     for replay_file in replays_folder.glob("*.osr"):
         replay = Replay.from_path(replay_file)
         spike_begin, spike_end = get_beatmap_spikes(replay, beatmaps)
         replay_player = replay_file.name.split("_")[0]
+        replay_mod = replay_file.name.split("_")[1][:2]
         replay_skin = player_skins[replay_player]
         video_path = replay_file.stem
+        update_danser_config(replay_mod)
+        copy_danser_config()
         video_fullpath = WindowsPath(replay_file.with_suffix(".mp4").name)
         extra = ["-replay", f"{replay_file}", "-skin", f"{replay_skin}", "-out", f"{video_path}", "-start",
                  f"{spike_begin.total_seconds()}", "-end", f"{spike_end.total_seconds()}", "-settings=danser_config"]
