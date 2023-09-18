@@ -33,12 +33,14 @@ class MyClient(discord.Client):
         with open("players.txt") as f:
             self.players = f.read().splitlines()
         self.players = [player.casefold() for player in self.players]
+        with open("qualified_players.txt") as f:
+            self.qualified_players = [player.casefold() for player in f.read().splitlines()]
 
     # In this basic example, we just synchronize the app commands to one guild.
     # Instead of specifying a guild to every command, we copy over our global commands instead.
     # By doing so, we don't have to wait up to an hour until they are shown to the end-user.
     async def setup_hook(self):
-        self.update_user_role.start()
+        self.update_qualified_users.start()
 
     @tasks.loop(minutes=60)
     async def update_user_role(self):
@@ -67,6 +69,32 @@ class MyClient(discord.Client):
         #         logger.error(f"Could not find {user.global_name} in player list.")
 
 
+    @tasks.loop(minutes=60)
+    async def update_qualified_users(self):
+        guild = await self.fetch_guild(1142002979277385829)
+        logger.info(f"Found the guild {guild}!")
+        ogrenci_role = guild.get_role(1142006050027995217)
+        logger.info(f"Found the role: {ogrenci_role}")
+
+        server_users_names = []
+        server_users = []
+        async for user in guild.fetch_members():
+            server_users_names.append(str(user).casefold())
+            server_users.append(user)
+
+        for user in server_users:
+            if str(user).casefold() not in self.qualified_players:
+                if ogrenci_role not in user.roles:
+                    logger.info(f"Skipping {user.global_name}. Not qualified.")
+                else:
+                    logger.info(f"Removing role from {user.global_name}")
+                    await user.remove_roles(ogrenci_role)
+            else:
+                if ogrenci_role not in user.roles:
+                    logger.info(f"{user.global_name} qualified, but doesn't have role. Giving him.")
+                    await user.add_roles(ogrenci_role)
+                else:
+                    logger.info(f"Skipping {user.global_name}. Already has the role.")
 
 
 client = MyClient(intents=intents)
