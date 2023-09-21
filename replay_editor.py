@@ -216,12 +216,14 @@ def correct_miss_event(hit_event: MissedHitEvent, replay: Replay, circle_radius:
     pos_change = find_position_change_by_ratio(hit_object_position, cursor_position, corrected_aim_diff_ratio)
     replay.replay_data[hit_event.replay_event_idx].x += pos_change.x
     replay.replay_data[hit_event.replay_event_idx].y += pos_change.y
-    pull_power = random.random() / 4 + 0.4
+    pull_power = random.random() / 10 + 0.8
     for i in range(1, brush_radius):
         prev_frame_idx = hit_event.replay_event_idx - i
         next_frame_idx = hit_event.replay_event_idx + i
         current_pull_power = math.pow(pull_power, i * 1.2)
         replay.replay_data[prev_frame_idx].x += pos_change.x * current_pull_power
+        replay.replay_data[next_frame_idx].x += pos_change.x * current_pull_power
+        replay.replay_data[prev_frame_idx].y += pos_change.y * current_pull_power
         replay.replay_data[next_frame_idx].y += pos_change.y * current_pull_power
 
     replay.count_miss = max(0, replay.count_miss - 1)
@@ -300,8 +302,9 @@ def fix_replay_combo(replay: Replay, beatmap: Beatmap):
 
 
 def add_mods(replay):
-    replay.mods |= 2**6
-    replay.mods |= 2**3
+    #replay.mods |= 2**6
+    #replay.mods |= 2**3
+    pass
 
 if __name__ == '__main__':
     beatmaps = parse_osu_db("E:\\osu!\\osu!.db")
