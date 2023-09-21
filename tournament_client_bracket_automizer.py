@@ -1,7 +1,9 @@
 import copy
+import datetime
 import json
 import shutil
 import statistics
+from collections import defaultdict
 from pathlib import WindowsPath
 
 from google.oauth2.credentials import Credentials
@@ -10,7 +12,7 @@ from googleapiclient.discovery import build
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', ]
 
 # The ID and range of a sample spreadsheet.
-ADMIN_SHEET_ID = '13UbJv82SOhLa2D2UOkQbjkyQc2o9JQGgHW6mCci52Pk'
+STATS_SHEET_ID = '13UbJv82SOhLa2D2UOkQbjkyQc2o9JQGgHW6mCci52Pk'
 SCORES_RANGE_NAME = 'Solo Placements!A:ZZ'
 TEAMS_RANGE_NAME = 'Teams!A2:B'
 
@@ -21,6 +23,9 @@ MAPPOOL_RANGE_NAMES = ['Ro32!AP3:BC',
                        'SF!AP3:BC',
                        'F!AP3:BC',
                        'GF!AP3:BC']
+
+REFEREE_SHEET_ID = '1siLQHsD1csVQBKHaLRr4kVtdQ20TcS9lla3VeIUWX9k'
+BRACKET_RANGE_NAME = "Bracket Schedule!B2:I"
 
 
 def get_player_seeds(score_rows, disqualified_players):
@@ -38,31 +43,34 @@ def get_player_seeds(score_rows, disqualified_players):
 
     return new_seedings
 
+
 def mod_score_calculation(score_rows):
-    scores = {"NM": [9+i*4 for i in range(4)],
-              "HD": [25+i*4 for i in range(2)],
-              "HR": [33+i*4 for i in range(2)],
-              "DT": [41+i*4 for i in range(2)]}
+    scores = {"NM": [9 + i * 4 for i in range(4)],
+              "HD": [25 + i * 4 for i in range(2)],
+              "HR": [33 + i * 4 for i in range(2)],
+              "DT": [41 + i * 4 for i in range(2)]}
     mod_seeds = {"NM": [],
                  "HD": [],
                  "HR": [],
                  "DT": []}
     for mod_name, score_indexes in scores.items():
-        mod_scores = [sum([int(scores[idx].replace(',','')) for idx in score_indexes]) for scores in score_rows]
+        mod_scores = [sum([int(scores[idx].replace(',', '')) for idx in score_indexes]) for scores in score_rows]
         median = statistics.median(mod_scores)
-        mod_algo = lambda x: x/median
+        mod_algo = lambda x: x / median
         mod_algo_result = [mod_algo(score) for score in mod_scores]
-        seeding_indexes = [i for i in sorted(range(len(mod_algo_result)),key=mod_algo_result.__getitem__, reverse=True)]
-        seedings = {idx: i+1 for i, idx in enumerate(seeding_indexes)}
+        seeding_indexes = [i for i in
+                           sorted(range(len(mod_algo_result)), key=mod_algo_result.__getitem__, reverse=True)]
+        seedings = {idx: i + 1 for i, idx in enumerate(seeding_indexes)}
         mod_seeds[mod_name] = seedings
 
     return mod_seeds
 
+
 def update_teams(sheet, bracket_json):
-    score_url = sheet.values().get(spreadsheetId=ADMIN_SHEET_ID,
+    score_url = sheet.values().get(spreadsheetId=STATS_SHEET_ID,
                                    range=SCORES_RANGE_NAME).execute()
     player_scores = score_url.get('values', [])
-    teams_url = sheet.values().get(spreadsheetId=ADMIN_SHEET_ID,
+    teams_url = sheet.values().get(spreadsheetId=STATS_SHEET_ID,
                                    range=TEAMS_RANGE_NAME).execute()
     player_info = teams_url.get('values', [])
     players_by_id = {player[1]: player[0] for player in player_info}
@@ -74,9 +82,6 @@ def update_teams(sheet, bracket_json):
         "Seed": "",
         "LastYearPlacing": 0,
         "Players": [
-            {
-                "id": 0,
-            }
         ],
         "SeedingResults": [
             {
@@ -124,9 +129,8 @@ def update_teams(sheet, bracket_json):
         player_team_dict = copy.deepcopy(team_template)
 
         player_team_dict["FullName"] = player_name
-        player_team_dict["Acronym"] = player_name
+        player_team_dict["Acronym"] = player_name[:4]
         player_team_dict["FlagName"] = "TR"
-        player_team_dict["Players"][0]["id"] = players_by_id[player_name]
         player_original_seed = player_row[1][1:]
         player_team_dict["Seed"] = player_seeds[player_original_seed]
 
@@ -201,12 +205,98 @@ def update_mappool(sheet, bracket_json):
                 continue
         round_dict = copy.deepcopy(round_template)
         mappool_name = mappool_range.split("!")[0]
+        if mappool_name != "Ro32":
+            continue
         round_dict["Name"] = mappool_name
         round_dict.update(mappool_dict[mappool_name])
         round_dict["Beatmaps"] = beatmaps
         rounds.append(round_dict)
 
     bracket_json["Rounds"] = rounds
+    return bracket_json
+
+
+def update_matches(sheet, bracket_json):
+    mappool_converter = {"Round of 32": "Ro32",
+                         "Round of 16": "Ro16",
+                         "Quarterfinals": "QF",
+                         "Semifinals": "SF",
+                         "Finals": "F",
+                         "Grand Finals": "GF"}
+    best_of_dict = {"Ro32": 5,
+                    "Ro16": 5,
+                    "QF": 6,
+                    "SF": 6,
+                    "F": 7,
+                    "GF": 7}
+    brackets_url = sheet.values().get(spreadsheetId=REFEREE_SHEET_ID,
+                                      range=BRACKET_RANGE_NAME,
+                                      valueRenderOption="UNFORMATTED_VALUE").execute()
+    matches = brackets_url.get('values', [])
+
+    match_template = {
+        "ID": 1,
+        "Team1Acronym": "Zybit",
+        "Team1Score": None,
+        "Team2Acronym": "-Satella-",
+        "Team2Score": None,
+        "Completed": False,
+        "Losers": False,
+        "PicksBans": [],
+        "Current": False,
+        "Date": "2023-09-22T23:00:00+02:00",
+        "ConditionalMatches": [],
+        "Position": {
+            "X": 670,
+            "Y": 420
+        },
+        "Acronyms": [
+            "Zybit",
+            "-Satella-"
+        ],
+        "WinnerColour": "Blue",
+        "PointsToWin": 5
+    }
+    x = 0
+    y = 0
+    round_matches = defaultdict(list)
+    matches_array = []
+    for row in matches:
+        match_dict = copy.deepcopy(match_template)
+        if len(row) < 6:
+            continue
+        match_id = row[1]
+        match_player1 = row[6]
+        match_player2 = row[7]
+        match_date = datetime.date(year=1900, month=1, day=1) + datetime.timedelta(days=row[2] - 2)
+        match_total_minutes = row[3] * 24 * 60
+        match_hours = int(match_total_minutes // 60)
+        match_minutes = int(match_total_minutes % 60)
+        match_datetime = datetime.datetime(year=match_date.year,
+                                           month=match_date.month,
+                                           day=match_date.day,
+                                           hour=match_hours,
+                                           minute=match_minutes)
+        match_mappool = mappool_converter[row[0]]
+        best_of = best_of_dict[match_mappool]
+        acronyms = [match_player1, match_player2]
+        match_dict["ID"] = match_id
+        match_dict["Team1Acronym"] = match_player1[:4]
+        match_dict["Team2Acronym"] = match_player2[:4]
+        match_dict["Date"] = match_datetime.strftime("%Y-%m-%dT%H:%M:%S+03:00")
+        match_dict["PointsToWin"] = best_of
+        match_dict["Acronyms"] = acronyms
+        match_dict["Position"]["X"] = x
+        match_dict["Position"]["Y"] = y
+        y += 120
+
+        round_matches[match_mappool].append(match_id)
+        matches_array.append(match_dict)
+    bracket_json["Matches"] = matches_array
+    for round in bracket_json["Rounds"]:
+        if round["Name"] in round_matches.keys():
+            round["Matches"] = round_matches[round["Name"]]
+
     return bracket_json
 
 
@@ -223,6 +313,7 @@ if __name__ == '__main__':
 
     bracket_json = update_teams(sheet, bracket_json)
     bracket_json = update_mappool(sheet, bracket_json)
+    bracket_json = update_matches(sheet, bracket_json)
 
     with open(bracket_json_path, "w", encoding="utf-8") as f:
-        json.dump(bracket_json, f)
+        json.dump(bracket_json, f, indent=2, ensure_ascii=False)
