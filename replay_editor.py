@@ -309,9 +309,9 @@ def fix_replay_combo(replay: Replay, beatmap: Beatmap):
 
 def add_mods(replay):
     # Toggle mods
-    # replay.mods ^= 2**6  # Double Time
+    # replay.mods ^= 2 ** 6  # Double Time
     # replay.mods ^= 2 ** 3  # Hidden
-    # replay.mods ^= 2**4  # Hidden
+    # replay.mods ^= 2 ** 4  # Hidden
     return replay
 
 
