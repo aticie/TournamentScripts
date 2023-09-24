@@ -177,7 +177,7 @@
                 "Value": 0.2
             },
             "FgColor": {
-                "Hue": 1,
+                "Hue": 210,
                 "Saturation": 0.6,
                 "Value": 0.92
             },
@@ -208,13 +208,13 @@
             "ExplosionScale": 1
         },
         "Mods": {
-            "Show": false,
+            "Show": true,
             "Scale": 1,
             "Opacity": 1,
             "XOffset": 0,
             "YOffset": 0,
             "HideInReplays": false,
-            "FoldInReplays": false,
+            "FoldInReplays": true,
             "AdditionalSpacing": 0
         },
         "Boundaries": {

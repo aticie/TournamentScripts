@@ -100,8 +100,10 @@ if __name__ == '__main__':
                     "Raikouhou": "Aristia(Edit)",
                     "LyeRR": "Aristia Editt",
                     "SunoExy": "Night of Knights",
+                    "megumic": "-#KW-! If there was an endpoint.",
+                    "garvanturr": "_Shield"
                     }
-    args = ["danser-cli", "-nodbcheck", "-noupdatecheck", "-record", "-preciseprogress"]
+    args = ["danser-cli", "-noupdatecheck", "-record", "-preciseprogress"]
     beatmaps = parse_osu_db("E:\\osu!\\osu!.db")
     for replay_file in replays_folder.glob("*.osr"):
         replay = Replay.from_path(replay_file)

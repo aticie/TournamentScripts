@@ -147,6 +147,9 @@ def get_hit_result(hit_events: List[HitEvent], beatmap: Beatmap, replay: Replay)
     while next_hitobject_idx < len(hit_objects) and \
             next_hit_event_idx < len(hit_events):
         hit_object = hit_objects[next_hitobject_idx]
+        hit_object_position = hit_object.position
+        if replay.mods & 2 ** 4:
+            hit_object_position = hit_object.position._replace(y=hit_object.position.y_max - hit_object.position.y)
         hit_event = hit_events[next_hit_event_idx]
         hit_time = hit_event.time
 
@@ -164,7 +167,7 @@ def get_hit_result(hit_events: List[HitEvent], beatmap: Beatmap, replay: Replay)
         else:
             hit_grade = HitGrade.HitMiss
             if isinstance(hit_object, Circle) or (isinstance(hit_object, Slider) and is_sv2):
-                if pos_distance(hit_event.position, hit_object.position) > circle_radius:
+                if pos_distance(hit_event.position, hit_object_position) > circle_radius:
                     object_hit_event = MissedHitEvent(**vars(hit_event),
                                                       hit_object=hit_object,
                                                       verdict=MissVerdict.AimMiss)
@@ -184,7 +187,7 @@ def get_hit_result(hit_events: List[HitEvent], beatmap: Beatmap, replay: Replay)
                                                           hit_object=hit_object)
             else:
                 if isinstance(hit_object, Slider) and \
-                        pos_distance(hit_event.position, hit_object.position) > circle_radius:
+                        pos_distance(hit_event.position, hit_object_position) > circle_radius:
                     object_hit_event = MissedHitEvent(**vars(hit_event),
                                                       hit_object=hit_object,
                                                       verdict=MissVerdict.AimMiss)
@@ -202,7 +205,11 @@ def get_hit_result(hit_events: List[HitEvent], beatmap: Beatmap, replay: Replay)
 
 def correct_miss_event(hit_event: MissedHitEvent, replay: Replay, circle_radius: float):
     print(f"Aim correction for {hit_event}.")
-    hit_diff = pos_distance(hit_event.hit_object.position, hit_event.position)
+    hit_object_position = hit_event.hit_object.position
+    if replay.mods & 2 ** 4:
+        hit_object_position = hit_event.hit_object.position._replace(
+            y=hit_event.hit_object.position.y_max - hit_event.hit_object.position.y)
+    hit_diff = pos_distance(hit_object_position, hit_event.position)
     valid_ratio = circle_radius / hit_diff
     corrected_aim_diff_ratio = (random.random() / 2 + 0.5) * valid_ratio
     print(
@@ -211,7 +218,6 @@ def correct_miss_event(hit_event: MissedHitEvent, replay: Replay, circle_radius:
     )
 
     brush_radius = random.randint(12, 18)
-    hit_object_position = hit_event.hit_object.position
     cursor_position = hit_event.position
     pos_change = find_position_change_by_ratio(hit_object_position, cursor_position, corrected_aim_diff_ratio)
     replay.replay_data[hit_event.replay_event_idx].x += pos_change.x
@@ -302,14 +308,17 @@ def fix_replay_combo(replay: Replay, beatmap: Beatmap):
 
 
 def add_mods(replay):
-    #replay.mods |= 2**6
-    #replay.mods |= 2**3
-    pass
+    # Toggle mods
+    # replay.mods ^= 2**6  # Double Time
+    # replay.mods ^= 2 ** 3  # Hidden
+    # replay.mods ^= 2**4  # Hidden
+    return replay
+
 
 if __name__ == '__main__':
     beatmaps = parse_osu_db("E:\\osu!\\osu!.db")
     replays_folder = WindowsPath("replays")
-    replay_file = list(replays_folder.glob("*.osr"))[0]
+    replay_file = list(replays_folder.glob("LyeRR_HR2.osr"))[0]
     replay = Replay.from_path(replay_file)
     print(f"Loaded replay file: {replay_file}")
 

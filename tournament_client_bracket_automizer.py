@@ -25,7 +25,7 @@ MAPPOOL_RANGE_NAMES = ['Ro32!AP3:BC',
                        'GF!AP3:BC']
 
 REFEREE_SHEET_ID = '1siLQHsD1csVQBKHaLRr4kVtdQ20TcS9lla3VeIUWX9k'
-BRACKET_RANGE_NAME = "Bracket Schedule!B2:I"
+BRACKET_RANGE_NAME = "Bracket Schedule!B2:L"
 
 
 def get_player_seeds(score_rows, disqualified_players):
@@ -280,6 +280,10 @@ def update_matches(sheet, bracket_json):
         match_mappool = mappool_converter[row[0]]
         best_of = best_of_dict[match_mappool]
         acronyms = [match_player1, match_player2]
+        if len(row) > 8:
+            match_dict["Team1Score"] = row[8] if row[8] != "FF" else -1
+            match_dict["Team2Score"] = row[9] if row[9] != "FF" else -1
+            match_dict["Completed"] = True
         match_dict["ID"] = match_id
         match_dict["Team1Acronym"] = match_player1[:4]
         match_dict["Team2Acronym"] = match_player2[:4]
@@ -290,7 +294,7 @@ def update_matches(sheet, bracket_json):
         match_dict["Position"]["Y"] = y
         y += 120
 
-        round_matches[match_mappool].append(match_id)
+        round_matches[row[0]].append(match_id)
         matches_array.append(match_dict)
     bracket_json["Matches"] = matches_array
     for round in bracket_json["Rounds"]:
@@ -311,8 +315,8 @@ if __name__ == '__main__':
     service = build('sheets', 'v4', credentials=creds)
     sheet = service.spreadsheets()
 
-    bracket_json = update_teams(sheet, bracket_json)
-    bracket_json = update_mappool(sheet, bracket_json)
+    # bracket_json = update_teams(sheet, bracket_json)
+    # bracket_json = update_mappool(sheet, bracket_json)
     bracket_json = update_matches(sheet, bracket_json)
 
     with open(bracket_json_path, "w", encoding="utf-8") as f:
