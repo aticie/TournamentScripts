@@ -14,7 +14,7 @@ from utils.osu_db import parse_osu_db
 from slider import Beatmap as SliderBeatmap
 
 
-def get_beatmap_spikes(replay, beatmaps):
+def get_beatmap_spikes(replay, beatmaps, video_len_ms:int = 60000):
     beatmap_hash = replay.beatmap_hash
     beatmap = beatmaps[beatmap_hash]
     beatmap_filepath = WindowsPath("E:\\osu!\\Songs") / beatmap.folder_name / beatmap.name_of_osu_file
@@ -23,7 +23,7 @@ def get_beatmap_spikes(replay, beatmaps):
     calc = Calculator(mods=replay.mods)
     strains = calc.strains(map)
     beatmap_attributes = calc.map_attributes(map)
-    video_length = 60000 * beatmap_attributes.clock_rate
+    video_length = video_len_ms * beatmap_attributes.clock_rate
     spike_begin, spike_end = get_spike_by_continuous_max(slider_beatmap, strains, video_length, beatmap_attributes.clock_rate)
     return spike_begin, spike_end
 
@@ -72,6 +72,12 @@ def update_danser_config(replay_mod):
         "TB": 334,
     }
     danser_config["Gameplay"]["StrainGraph"]["FgColor"]["Hue"] = mod_colors[replay_mod]
+    if replay_mod == "TB":
+        danser_config["Recording"]["Filters"] = "fade=t=in:st=0:d=2.5,fade=t=out:st=117.5:d=2.5"
+        danser_config["Recording"]["AudioFilters"] = "afade=t=in:st=0:d=2.5,afade=t=out:st=117.5:d=2.5"
+    else:
+        danser_config["Recording"]["Filters"] = "fade=t=in:st=0:d=2.5,fade=t=out:st=57.5:d=2.5"
+        danser_config["Recording"]["AudioFilters"] = "afade=t=in:st=0:d=2.5,afade=t=out:st=57.5:d=2.5"
 
     with open("danser_config.json", "w") as f:
         json.dump(danser_config, f, indent=4)
@@ -101,15 +107,24 @@ if __name__ == '__main__':
                     "LyeRR": "Aristia Editt",
                     "SunoExy": "Night of Knights",
                     "megumic": "-#KW-! If there was an endpoint.",
-                    "garvanturr": "_Shield"
+                    "garvanturr": "_Shield",
+                    "ErAlpha": "-_clackz",
+                    "raven waffles": "Unnamed Skin",
+                    "Clarz": "-        # WhiteCat (1.0) 『CK』 #-"
                     }
     args = ["danser-cli", "-noupdatecheck", "-record", "-preciseprogress"]
     beatmaps = parse_osu_db("E:\\osu!\\osu!.db")
     for replay_file in replays_folder.glob("*.osr"):
         replay = Replay.from_path(replay_file)
-        spike_begin, spike_end = get_beatmap_spikes(replay, beatmaps)
-        replay_player = replay_file.name.split("_")[0]
-        replay_mod = replay_file.name.split("_")[1][:2]
+        replay_filename = replay_file.name.replace("_", " ")
+        replay_player = " ".join(replay_filename.split(" ")[:-1])
+        replay_mod = replay_filename.split(" ")[-1][:2]
+        if replay_mod == "TB":
+            video_length = "00:02:00"
+            spike_begin, spike_end = get_beatmap_spikes(replay, beatmaps, 120000)
+        else:
+            video_length = "00:01:00"
+            spike_begin, spike_end = get_beatmap_spikes(replay, beatmaps)
         replay_skin = player_skins[replay_player]
         video_path = replay_file.stem
         update_danser_config(replay_mod)
@@ -120,7 +135,7 @@ if __name__ == '__main__':
         final_args = args + extra
         subprocess.run(final_args)
 
-        ffmpeg_args = ["ffmpeg", "-y", "-to", "00:01:00",
+        ffmpeg_args = ["ffmpeg", "-y", "-to", video_length,
                        "-i", f"C:\\danser\\videos\\{video_path}.mp4",
                        "-c:v", "copy", "-c:a", "copy",
                        "-avoid_negative_ts", "1", f"videos/{video_fullpath}"]

@@ -318,7 +318,7 @@ def add_mods(replay):
 if __name__ == '__main__':
     beatmaps = parse_osu_db("E:\\osu!\\osu!.db")
     replays_folder = WindowsPath("replays")
-    replay_file = list(replays_folder.glob("LyeRR_HR2.osr"))[0]
+    replay_file = list(replays_folder.glob("ErAlpha_-_Kano_-_Sayounara_Hanadorobou-san_dahkjdas_Insane_2023-10-09_Osu.osr"))[0]
     replay = Replay.from_path(replay_file)
     print(f"Loaded replay file: {replay_file}")
 
