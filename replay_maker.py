@@ -114,7 +114,10 @@ if __name__ == '__main__':
                     "raven waffles": "Unnamed Skin",
                     "Clarz": "-        # WhiteCat (1.0) 『CK』 #-",
                     "kefn": "- JesusOmega {NM} 『Planets』 -",
-                    "Orkay": "Vaxei_2023"
+                    "Orkay": "Vaxei_2023",
+                    "Hinokami Kagura": "MonkoGlassTest",
+                    "Tekaii": "AristiaEdittrail",
+                    "aimlessplayr": "Tokeskinv5HR"
                     }
     args = ["danser-cli", "-noupdatecheck", "-record", "-preciseprogress"]
     beatmaps = parse_osu_db("E:\\osu!\\osu!.db")
@@ -133,7 +136,7 @@ if __name__ == '__main__':
         video_path = replay_file.stem
         update_danser_config(replay_mod)
         copy_danser_config()
-        video_fullpath = WindowsPath(replay_file.with_suffix(".mp4").name)
+        video_fullpath = replay_file.with_suffix(".mp4").name[-7:]
         extra = ["-replay", f"{replay_file}", "-skin", f"{replay_skin}", "-out", f"{video_path}", "-start",
                  f"{spike_begin.total_seconds()}", "-end", f"{spike_end.total_seconds()}", "-settings=danser_config"]
         final_args = args + extra
