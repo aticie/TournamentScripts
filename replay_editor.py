@@ -3,7 +3,7 @@ import math
 import random
 from enum import Enum
 from pathlib import WindowsPath
-from typing import List
+from typing import List, Optional
 
 from osrparse import Replay, ReplayEventOsu, Key
 from slider import Beatmap, HitObject, Circle, Slider, Position as SliderPosition
@@ -60,35 +60,45 @@ class HitEvent:
         return f"Hit Event at {self.time} - {self.keys}"
 
 
-class SuccessfulHitEvent(HitEvent):
-    def __init__(self, time: datetime.timedelta, keys: Key, position: SliderPosition, grade: HitGrade,
-                 hit_object: HitObject,
-                 replay_event_idx: int):
-        super().__init__(time, keys, position=position, replay_event_idx=replay_event_idx)
-        self.grade = grade
+class HittedHitObject:
+    def __init__(self, hit_object: HitObject,
+                 closest_hit_event: Optional[HitEvent] = None):
         self.hit_object = hit_object
-        self.time_offset = abs(hit_object.time - time)
-        self.aim_offset = distance(self.position, hit_object.position)
+        self.closest_hit_event = closest_hit_event
+
+
+class MissedHitObject(HittedHitObject):
+    def __init__(self,
+                 hit_object: HitObject,
+                 verdict: Optional[MissVerdict],
+                 grade: HitGrade = HitGrade.HitMiss,
+                 closest_hit_event: Optional[HitEvent] = None):
+        super().__init__(hit_object=hit_object,
+                         closest_hit_event=closest_hit_event)
+        self.grade = grade
+        self.verdict = verdict
+
+
+class SuccessfulHittedHitObject(HittedHitObject):
+    def __init__(self,
+                 hit_object: HitObject,
+                 grade: HitGrade,
+                 closest_hit_event: HitEvent,
+                 ):
+        super().__init__(hit_object=hit_object,
+                         closest_hit_event=closest_hit_event)
+        self.grade = grade
+        self.closest_hit_event = closest_hit_event
+        self.time_offset = abs(hit_object.time - closest_hit_event.time)
+        self.aim_offset = distance(self.closest_hit_event.position, hit_object.position)
 
     def __repr__(self):
-        return f"{self.grade} Event at {self.time}: " \
+        return f"{self.grade} Event at {self.closest_hit_event.time}: " \
                f"{self.hit_object.__class__.__name__}, {self.hit_object.time} - " \
                f"TimeDiff: {self.time_offset} - AimDiff: {self.aim_offset}"
 
 
-class MissedHitEvent(SuccessfulHitEvent):
-    def __init__(self, time: datetime.timedelta, keys: Key, position: SliderPosition, hit_object: HitObject,
-                 replay_event_idx: int, verdict: MissVerdict):
-        super().__init__(time=time,
-                         keys=keys,
-                         position=position,
-                         grade=HitGrade.HitMiss,
-                         hit_object=hit_object,
-                         replay_event_idx=replay_event_idx)
-        self.verdict = verdict
-
-
-def gather_hit_events(replay: Replay) -> list[HitEvent]:
+def gather_hit_events(replay: Replay) -> list[HittedHitObject]:
     hit_events = []
     prev_m1_state = 0
     prev_m2_state = 0
@@ -121,9 +131,22 @@ def diff_rate(diff: float, min: float, mid: float, max: float) -> float:
     return mid
 
 
+def get_hit_events_in_hitrange(hit_events: List[HitEvent], hitrange_start: datetime.timedelta,
+                               hitrange_end: datetime.timedelta):
+    min_index = min(range(len(hit_events)), key=lambda i: abs(hit_events[i].time - hitrange_start))
+    if hit_events[min_index].time < hitrange_start:
+        min_index += 1
+    max_index = min(range(len(hit_events)), key=lambda i: abs(hit_events[i].time - hitrange_end))
+    if hit_events[max_index].time > hitrange_end:
+        max_index -= 1
+
+    if min_index > max_index:
+        return 0, 0
+    return min_index, max_index
+
+
 def get_hit_result(hit_events: List[HitEvent], beatmap: Beatmap, replay: Replay):
-    next_hitobject_idx = 0
-    next_hit_event_idx = 0
+    hittable_range = datetime.timedelta(milliseconds=400)
 
     hit_objects = beatmap.hit_objects()
 
@@ -144,71 +167,82 @@ def get_hit_result(hit_events: List[HitEvent], beatmap: Beatmap, replay: Replay)
     print(f"Circle Radius: {circle_radius}")
     object_hit_events = []
 
-    while next_hitobject_idx < len(hit_objects) and \
-            next_hit_event_idx < len(hit_events):
-        hit_object = hit_objects[next_hitobject_idx]
-        hit_object_position = hit_object.position
-        if replay.mods & 2 ** 4:
-            hit_object_position = hit_object.position._replace(y=hit_object.position.y_max - hit_object.position.y)
-        hit_event = hit_events[next_hit_event_idx]
-        hit_time = hit_event.time
-
+    for hit_object_idx, hit_object in enumerate(hit_objects):
         hitobject_time = hit_object.time
+        hitrange_start = hitobject_time - hittable_range
+        hitrange_end = hitobject_time + hittable_range
+        min_index, max_index = get_hit_events_in_hitrange(hit_events, hitrange_start, hitrange_end)
+        hittable_hit_events = hit_events[min_index:max_index]
+
         hitobject_min_time = hitobject_time - beatmap_50_window
         hitobject_max_time = hitobject_time + beatmap_50_window
 
-        if hit_time < hitobject_min_time:
-            next_hit_event_idx += 1
-            continue
-        elif hit_time > hitobject_max_time:
-            if isinstance(hit_object, Circle):
-                next_hitobject_idx += 1
-            object_hit_event = MissedHitEvent(**vars(hit_event), hit_object=hit_object, verdict=MissVerdict.TimingMiss)
-        else:
-            hit_grade = HitGrade.HitMiss
-            if isinstance(hit_object, Circle) or (isinstance(hit_object, Slider) and is_sv2):
-                if pos_distance(hit_event.position, hit_object_position) > circle_radius:
-                    object_hit_event = MissedHitEvent(**vars(hit_event),
-                                                      hit_object=hit_object,
-                                                      verdict=MissVerdict.AimMiss)
-                else:
-                    hit_offset = abs(hit_object.time - hit_event.time)
-                    if hit_offset < beatmap_300_window:
-                        hit_grade = HitGrade.Hit300
-                    elif hit_offset < beatmap_100_window:
-                        hit_grade = HitGrade.Hit100
-                    elif hit_offset < beatmap_50_window:
-                        hit_grade = HitGrade.Hit50
-                    else:
-                        print(f"There is an error in the code.")
+        hit_object_position = hit_object.position
+        if replay.mods & 2 ** 4:
+            hit_object_position = hit_object.position._replace(y=hit_object.position.y_max - hit_object.position.y)
 
-                    object_hit_event = SuccessfulHitEvent(**vars(hit_event),
-                                                          grade=hit_grade,
-                                                          hit_object=hit_object)
+        for hit_event_subindex, hit_event in enumerate(hittable_hit_events):
+            hit_time = hit_event.time
+            if hit_time < hitobject_min_time or hit_time > hitobject_max_time:
+                object_hit_event = MissedHitObject(hit_object=hit_object,
+                                                   verdict=MissVerdict.TimingMiss,
+                                                   closest_hit_event=hit_event)
+                break
             else:
-                if isinstance(hit_object, Slider) and \
-                        pos_distance(hit_event.position, hit_object_position) > circle_radius:
-                    object_hit_event = MissedHitEvent(**vars(hit_event),
-                                                      hit_object=hit_object,
-                                                      verdict=MissVerdict.AimMiss)
+                hit_grade = HitGrade.HitMiss
+                if isinstance(hit_object, Circle) or (isinstance(hit_object, Slider) and is_sv2):
+                    if pos_distance(hit_event.position, hit_object_position) > circle_radius:
+                        object_hit_event = MissedHitObject(hit_object=hit_object,
+                                                           verdict=MissVerdict.AimMiss,
+                                                           closest_hit_event=hit_event)
+                        break
+                    else:
+                        hit_offset = abs(hit_object.time - hit_event.time)
+                        if hit_offset < beatmap_300_window:
+                            hit_grade = HitGrade.Hit300
+                        elif hit_offset < beatmap_100_window:
+                            hit_grade = HitGrade.Hit100
+                        elif hit_offset < beatmap_50_window:
+                            hit_grade = HitGrade.Hit50
+                        else:
+                            print(f"There is an error in the code.")
+                        object_hit_event = SuccessfulHittedHitObject(
+                            grade=hit_grade,
+                            hit_object=hit_object,
+                            closest_hit_event=hit_event)
+                        break
                 else:
-                    hit_grade = HitGrade.Hit300
-                    object_hit_event = SuccessfulHitEvent(**vars(hit_event),
-                                                          grade=hit_grade,
-                                                          hit_object=hit_object)
+                    if isinstance(hit_object, Slider) and \
+                            pos_distance(hit_event.position, hit_object_position) > circle_radius:
+                        object_hit_event = MissedHitObject(hit_object=hit_object,
+                                                           verdict=MissVerdict.AimMiss,
+                                                           closest_hit_event=hit_event)
+                        break
+                    else:
+                        hit_grade = HitGrade.Hit300
+                        object_hit_event = SuccessfulHittedHitObject(
+                            grade=hit_grade,
+                            hit_object=hit_object,
+                            closest_hit_event=hit_event)
+                        break
+        else:
+            hit_event_subindex = -1
+            object_hit_event = MissedHitObject(hit_object=hit_object,
+                                               verdict=MissVerdict.TimingMiss)
+
+        hit_events = hit_events[hit_event_subindex+min_index+1:]
         object_hit_events.append(object_hit_event)
-        next_hit_event_idx += 1
-        next_hitobject_idx += 1
 
     return object_hit_events
 
 
-def correct_miss_event(hit_event: MissedHitEvent, replay: Replay, circle_radius: float):
-    print(f"Aim correction for {hit_event}.")
-    hit_object_position = hit_event.hit_object.position
+def correct_miss_event(missed_hit_object: MissedHitObject, replay: Replay, circle_radius: float):
+    print(f"Aim correction for {missed_hit_object}.")
+    hit_object_position = missed_hit_object.hit_object.position
     if replay.mods & 2 ** 4:
-        hit_object_position = hit_event.hit_object.position._replace(
-            y=hit_event.hit_object.position.y_max - hit_event.hit_object.position.y)
+        hit_object_position = missed_hit_object.hit_object.position._replace(
+            y=missed_hit_object.hit_object.position.y_max - missed_hit_object.hit_object.position.y)
+    hit_event = missed_hit_object.closest_hit_event
     hit_diff = pos_distance(hit_object_position, hit_event.position)
     valid_ratio = circle_radius / hit_diff
     corrected_aim_diff_ratio = (random.random() / 2 + 0.5) * valid_ratio
@@ -237,11 +271,24 @@ def correct_miss_event(hit_event: MissedHitEvent, replay: Replay, circle_radius:
     return replay
 
 
-def fix_replay_scorev2(replay: Replay, object_hit_events: List[HitEvent], beatmap: Beatmap):
+def fix_replay_scorev2(replay: Replay, object_hit_events: List[HittedHitObject], beatmap: Beatmap):
     replay_accuracy = (replay.count_300 + replay.count_100 * 100 / 300 + replay.count_50 * 50 / 300) / (
             replay.count_300 + replay.count_100 + replay.count_50 + replay.count_miss)
-    accuracy_portion = 0.3
-    combo_portion = 0.7
+    accuracy_portion = 300000
+    combo_portion = 700000
+
+    mod_multipliers = {2 ** 1: 0.5,  # Easy
+                       2 ** 4: 1.1,  # Hard Rock
+                       2 ** 3: 1.06,  # Hidden
+                       2 ** 10: 1.12,  # Flashlight
+                       2 ** 6: 1.2,  # Double Time
+                       2 ** 8: 0.3  # Half Time
+                       }
+
+    mod_multiplier = 1
+    for k, v in mod_multipliers.items():
+        if replay.mods & k:
+            mod_multiplier *= v
 
     combo = 0
     max_combo = 0
@@ -256,13 +303,12 @@ def fix_replay_scorev2(replay: Replay, object_hit_events: List[HitEvent], beatma
 
     if combo > max_combo:
         max_combo = combo
-    total_score = 1000000 * (
-            (replay_accuracy * accuracy_portion) + (max_combo / beatmap.max_combo) * combo_portion)
+    total_score = (combo_portion * combo / max_combo) + (accuracy_portion * (replay_accuracy)**10) * mod_multiplier
     replay.score = int(total_score)
     return max_combo, total_score
 
 
-def fix_replay_score(replay: Replay, object_hit_events: List[HitEvent], beatmap: Beatmap):
+def fix_replay_score(replay: Replay, object_hit_events: List[HittedHitObject], beatmap: Beatmap):
     score = 0
     combo = 0
     max_combo = 0
@@ -318,7 +364,7 @@ def add_mods(replay):
 if __name__ == '__main__':
     beatmaps = parse_osu_db("E:\\osu!\\osu!.db")
     replays_folder = WindowsPath("replays")
-    replay_file = list(replays_folder.glob("ErAlpha_-_Kano_-_Sayounara_Hanadorobou-san_dahkjdas_Insane_2023-10-09_Osu.osr"))[0]
+    replay_file = list(replays_folder.glob("*.osr"))[1]
     replay = Replay.from_path(replay_file)
     print(f"Loaded replay file: {replay_file}")
 
@@ -333,7 +379,7 @@ if __name__ == '__main__':
 
     corrected_replay = replay
     for hit_event in object_hit_events:
-        if isinstance(hit_event, MissedHitEvent) and hit_event.verdict == MissVerdict.AimMiss:
+        if isinstance(hit_event, MissedHitObject) and hit_event.verdict == MissVerdict.AimMiss:
             mods = {"easy": replay.mods & 2 ** 1,
                     "hard_rock": replay.mods & 2 ** 4}
             cs = beatmap.cs(**mods)
