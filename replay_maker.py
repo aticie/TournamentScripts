@@ -9,12 +9,12 @@ from pathlib import WindowsPath
 
 from osrparse import Replay
 from rosu_pp_py import Beatmap, Calculator
-
-from utils.osu_db import parse_osu_db
 from slider import Beatmap as SliderBeatmap
 
+from utils.osu_db import parse_osu_db
 
-def get_beatmap_spikes(replay, beatmaps, video_len_ms:int = 60000):
+
+def get_beatmap_spikes(replay, beatmaps, video_len_ms: int = 60000):
     beatmap_hash = replay.beatmap_hash
     beatmap = beatmaps[beatmap_hash]
     beatmap_filepath = WindowsPath("E:\\osu!\\Songs") / beatmap.folder_name / beatmap.name_of_osu_file
@@ -24,7 +24,8 @@ def get_beatmap_spikes(replay, beatmaps, video_len_ms:int = 60000):
     strains = calc.strains(map)
     beatmap_attributes = calc.map_attributes(map)
     video_length = video_len_ms * beatmap_attributes.clock_rate
-    spike_begin, spike_end = get_spike_by_continuous_max(slider_beatmap, strains, video_length, beatmap_attributes.clock_rate)
+    spike_begin, spike_end = get_spike_by_continuous_max(slider_beatmap, strains, video_length,
+                                                         beatmap_attributes.clock_rate)
     return spike_begin, spike_end
 
 
@@ -86,6 +87,7 @@ def update_danser_config(replay_mod):
 def copy_danser_config():
     shutil.copyfile("danser_config.json", "C:\\danser\\settings\\danser_config.json")
 
+
 if __name__ == '__main__':
 
     logger = logging.getLogger()
@@ -110,7 +112,9 @@ if __name__ == '__main__':
                     "garvanturr": "_Shield",
                     "ErAlpha": "-_clackz",
                     "raven waffles": "Unnamed Skin",
-                    "Clarz": "-        # WhiteCat (1.0) 『CK』 #-"
+                    "Clarz": "-        # WhiteCat (1.0) 『CK』 #-",
+                    "kefn": "- JesusOmega {NM} 『Planets』 -",
+                    "Orkay": "Vaxei_2023"
                     }
     args = ["danser-cli", "-noupdatecheck", "-record", "-preciseprogress"]
     beatmaps = parse_osu_db("E:\\osu!\\osu!.db")
