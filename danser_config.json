@@ -167,7 +167,7 @@
             "Show": true,
             "Opacity": 1,
             "XPosition": 10,
-            "YPosition": 320,
+            "YPosition": 10,
             "Align": "TopLeft",
             "Width": 190,
             "Height": 100,
@@ -177,7 +177,7 @@
                 "Value": 0.2
             },
             "FgColor": {
-                "Hue": 210,
+                "Hue": 1,
                 "Saturation": 0.6,
                 "Value": 0.92
             },
@@ -218,7 +218,7 @@
             "AdditionalSpacing": 0
         },
         "Boundaries": {
-            "Enabled": true,
+            "Enabled": false,
             "BorderThickness": 1,
             "BorderFill": 1,
             "BorderColor": {
